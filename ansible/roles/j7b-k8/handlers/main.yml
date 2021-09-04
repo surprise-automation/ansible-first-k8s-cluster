@@ -1,0 +1,7 @@
+---
+# handlers file for j7b-k8
+- name: Ensure Docker is running
+  systemd:
+    name: docker
+    state: restarted
+    enabled: yes

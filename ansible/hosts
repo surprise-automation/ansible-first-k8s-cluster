@@ -1,0 +1,11 @@
+[all:vars]
+ansible_connection=ssh
+ansible_user=root
+ansible_ssh_pass=somepass
+
+[k8-master]
+edd
+
+[k8-worker]
+ed
+eddie

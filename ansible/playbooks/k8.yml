@@ -1,0 +1,16 @@
+---
+- hosts:
+    - k8-master
+    - k8-worker
+  roles:
+    - role: j7b-k8
+
+- hosts:
+    - k8-master
+  roles:
+    - j7b-k8-master
+
+- hosts:
+    - k8-worker
+  roles:
+    - j7b-k8-worker

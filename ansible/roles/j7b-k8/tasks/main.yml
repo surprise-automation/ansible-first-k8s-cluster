@@ -1,0 +1,147 @@
+---
+# tasks file for j7b-k8
+
+- name: Ensure SELinux is set to disabled mode
+  lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: SELINUX=disabled
+
+- name: Setup hosts file (Ed)
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^<ed ip>'
+    line: <ed ip> ed
+
+- name: Setup hosts file (Edd)
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^<edd ip>'
+    line: <edd ip> edd
+
+- name: Setup hosts file (Eddie)
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^<eddie ip>'
+    line: <eddie ip> eddie
+
+- name: Copy docker repo file
+  copy:
+    src: etc/yum.repos.d/docker.repo
+    dest: /etc/yum.repos.d/docker.repo
+
+- name: Copy kubernettes repo file
+  copy:
+    src: etc/yum.repos.d/kubernetes.repo
+    dest: /etc/yum.repos.d/kubernetes.repo
+
+- name: copy whatever this is
+  copy:
+    src: etc/sysctl.d/k8s.conf
+    dest: /etc/sysctl.d/k8s.conf
+
+- name: copy whtever this other thing is
+  copy:
+    src: etc/modules-load.d/k8s.conf
+    dest: /etc/modules-load.d/k8s.conf
+
+- name: Copy over Docker config (switch cgroup driver from cgroupfs to systemd)
+  copy:
+    src: etc/docker/daemon.json
+    dest: /etc/docker/daemon.json
+  notify:
+    - Ensure Docker is running
+
+- name: Disable SWAP since kubernetes can't work with swap enabled (1/2)
+  shell: |
+    swapoff -a
+
+- name: Disable SWAP in fstab since kubernetes can't work with swap enabled (2/2)
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+    replace: '# \1'
+
+- name: Upgrade all packages
+  yum:
+    name: '*'
+    state: latest
+
+
+- name: Doing k8s firewall
+  firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    immediate: yes
+    state: enabled
+  loop:
+    - 6443/tcp
+    - 2379/tcp
+    - 2380/tcp
+    - 10250/tcp
+    - 10251/tcp
+    - 10252/tcp
+    - 30000-32767/tcp
+
+- name: install docker
+  yum:
+    name: "{{ item }}"
+    state: installed
+    update_cache: yes
+  loop:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+  notify:
+    - Ensure Docker is running
+
+- name: install KKK
+  yum:
+    name: "{{ packages }}"
+    state: installed
+    update_cache: yes
+    disable_excludes: all
+  vars:
+    packages:
+    - kubectl
+    - kubelet
+    - kubeadm
+
+- name: Copy over k8 config
+  copy:
+    src: root/kubeadm-config.yaml
+    dest: /root/kubeadm-config.yaml
+
+
+- name: Create Kubernetes group
+  group:
+    name: icekube
+    gid: 1069
+    state: present
+
+- name: Create kubernetes user
+  user:
+    name: icekube
+    group: icekube
+    comment: Kubernetes user
+    uid: 1069
+    state: present
+
+- name: Create directory for icekubes kube configs
+  file:
+    path: /home/icekube/.kube
+    state: directory
+    owner: icekube
+    group: icekube
+
+- name: Ensure Docker is running
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Ensure Kubelet is running
+  systemd:
+    name: kubelet
+    state: started
+    enabled: yes
